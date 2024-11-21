@@ -20,6 +20,23 @@ def triangulation(
     :param image_points2: points in the second image, np.ndarray Nx2
     :return: triangulated points, np.ndarray Nx3
     """
-
-    pass
-    # YOUR CODE HERE
+    dr1 = -camera_rotation1.T @ camera_position1
+    dr2 = -camera_rotation2.T @ camera_position2
+    proj1 = camera_matrix @ np.hstack((camera_rotation1.T, dr1.reshape(3, 1)))
+    proj2 = camera_matrix @ np.hstack((camera_rotation2.T, dr2.reshape(3, 1)))
+    num_points = image_points1.shape[0]
+    p = np.zeros((num_points, 3))
+    for i in range(num_points):
+        x1, y1 = image_points1[i]
+        x2, y2 = image_points2[i]
+        A = np.array([
+            (- x1 * proj1[2, :] + proj1[0, :]),
+            (  y1 * proj1[2, :] - proj1[1, :]),
+            (- x2 * proj2[2, :] + proj2[0, :]),
+            (  y2 * proj2[2, :] - proj2[1, :])
+        ])
+        _, _, V = np.linalg.svd(A)
+        X = V[-1]
+        X /= X[-1]
+        p[i] = X[:3]
+    return p

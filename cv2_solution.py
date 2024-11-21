@@ -17,8 +17,25 @@ def get_matches(image1, image2) -> typing.Tuple[
 
     bf = cv2.BFMatcher()
     matches_1_to_2: typing.Sequence[typing.Sequence[cv2.DMatch]] = bf.knnMatch(descriptors1, descriptors2, k=2)
+    good_matches_1_to_2 = []
+    for m, n in matches_1_to_2:
+        if m.distance < 0.75 * n.distance:
+            good_matches_1_to_2.append(m)
 
-    # YOUR CODE HERE
+    matches_2_to_1 = bf.knnMatch(descriptors2, descriptors1, k=2)
+    good_matches_2_to_1 = []
+    for m, n in matches_2_to_1:
+        if m.distance < 0.75 * n.distance:
+            good_matches_2_to_1.append(m)
+
+    final_matches = []
+    for match1 in good_matches_1_to_2:
+        for match2 in good_matches_2_to_1:
+            if match1.queryIdx == match2.trainIdx and match1.trainIdx == match2.queryIdx:
+                final_matches.append(match1)
+                break
+
+    return kp1, kp2, final_matches
 
 
 def get_second_camera_position(kp1, kp2, matches, camera_matrix):
@@ -40,8 +57,18 @@ def triangulation(
         kp2: typing.Sequence[cv2.KeyPoint],
         matches: typing.Sequence[cv2.DMatch]
 ):
-    pass
-    # YOUR CODE HERE
+    dr1 = -camera1_rotation_matrix.T @ camera1_translation_vector
+    dr2 = -camera2_rotation_matrix.T @ camera2_translation_vector
+    proj1 = camera_matrix @ np.hstack((camera1_rotation_matrix.T, dr1.reshape(3, 1)))
+    proj2 = camera_matrix @ np.hstack((camera2_rotation_matrix.T, dr2.reshape(3, 1)))
+
+    points1 = np.array([kp1[match.queryIdx].pt for match in matches], dtype=np.float32)
+    points2 = np.array([kp2[match.trainIdx].pt for match in matches], dtype=np.float32)
+
+    res = cv2.triangulatePoints(proj1, proj2, points1.T, points2.T)
+    res = res.T
+    res /= res[-1]
+    return res[:,:3]
 
 
 # Task 4
